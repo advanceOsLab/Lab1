@@ -1,0 +1,53 @@
+Ans:(Each entry is 4 bytes)
+    In the beginning the esp points to 0xf010ffdc
+This is how the stack sees in the beginning:
+0xf010ffd8:    0xf010fff8    0xf01000ea    0x00000005    0x00001aac
+0xf010ffe8:    0x00000644    0x00000000    0x00000000    0x00000000
+
+here 0x00000005 is pushed in the function i386_init() and then the test_backtrace(5) function is called and the address(0xf01000ea) of the next instruction is pushed into the stack and the control jumps to test_backtrace().0xf010fff8 is the ebp register value.After the instruction 
+    push   %ebx    where ebx = 65684 = 0x00010094
+The stack is 
+0xf010ffd4:    0x00010094    0xf010fff8    0xf01000ea    0x00000005
+0xf010ffe4:    0x00001aac    0x00000644    0x00000000    0x00000000
+After: sub    $0x14,%esp
+The esp is now at 0xf010ffc0
+After,
+mov    %ebx,0x4(%esp)
+movl   $0xf0101920,(%esp)
+The stack looks like following:
+0xf010ffc0:    0xf0101920    0x00000005    0x00000000    0x00010094
+0xf010ffd0:    0x00010094    0x00010094    0xf010fff8    0xf01000ea
+
+In the instruction: lea    -0x1(%ebx),%eax, 5 is reduced to 4 and is stored in eax register.
+After the instruction , mov    %eax,(%esp), the stack looks as below:
+0xf010ffc0:    0x00000004    0x00000005    0x00000000    0x00010094
+0xf010ffd0:    0x00010094    0x00010094    0xf010fff8    0xf01000ea
+
+When the instruction :call   0xf0100040 executes ie call to test_backtrace(), it recurses, following are the elements of the stack.
+0xf010ffbc:    0xf0100069    0x00000004    0x00000005    0x00000000
+0xf010ffcc:    0x00010094    0x00010094    0x00010094    0xf010fff8
+    0xf0100069 is the next instruction after the previous call, i.e  the next instructin after: call  0xf0100040 :.
+Again after instruction : push   %ebp. Stack appears as follows,
+0xf010ffb8:    0xf010ffd8    0xf0100069    0x00000004    0x00000005
+0xf010ffc8:    0x00000000    0x00010094    0x00010094    0x00010094
+    
+    where 0xf010ffd8 is the ebp value.After the instruction :push   %ebx, The stack is:
+0xf010ffb4:    0x00000005    0xf010ffd8    0xf0100069    0x00000004
+0xf010ffc4:    0x00000005    0x00000000    0x00010094    0x00010094
+    
+    After the instruction: sub    $0x14,%esp, the stack grows in size by 0x14(20 bytes).This is how it looks now.
+(gdb) x/24x $esp
+0xf010ffa0:    0xf0101920    0xf010ffc4    0x00000000    0x00000000
+0xf010ffb0:    0x00000000    0x00000005    0xf010ffd8    0xf0100069
+0xf010ffc0:    0x00000004    0x00000005    0x00000000    0x00010094
+0xf010ffd0:    0x00010094    0x00010094    0xf010fff8    0xf01000ea
+No idea about the first two values, i.e:0xf0101920    0xf010ffc4.
+    After instruction :mov    %ebx,0x4(%esp):The stack is 
+0xf010ffa0:    0xf0101920    0x00000004    0x00000000    0x00000000
+0xf010ffb0:    0x00000000    0x00000005    0xf010ffd8    0xf0100069
+as esp = 0xf010ffa0 and esp +4 = f010ffa4.and ebx is set to for from the previous instruction: mov    0x8(%ebp),%ebx and ebp =0xf010ffb8
+ie ebp +8 = f010ffc0 which have 4 as value.
+and after the instruction :mov    %eax,(%esp),eax = 3, from instruction: lea    -0x1(%ebx),%eax. The stack is:
+0xf010ffa0:    0x00000003    0x00000004    0x00000000    0x00000000
+0xf010ffb0:    0x00000000    0x00000005    0xf010ffd8    0xf0100069.
+    so here, how the value 0xf0101920    0xf010ffc4 gets replaced with 0x00000003    0x00000004 rather than adding 0x00000003    0x00000004 it to end of stack??I guess they would have got added if they use push and pop.
